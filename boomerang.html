@@ -18,8 +18,8 @@ html, body { background: #000; width: 100%; height: 100%; overflow: hidden; }
     s.src = src; s.onload = cb;
     document.head.appendChild(s);
   }
-  loadScript('https://cdn.jsdelivr.net/npm/@clappr/player@0.3.6/dist/clappr.min.js', function() {
-    loadScript('https://cdn.jsdelivr.net/npm/level-selector@0.0.14/dist/level-selector.min.js', function() {
+  loadScript('https://cdn.jsdelivr.net/npm/@clappr/player@0.11.16/dist/clappr.min.js', function() {
+    loadScript('https://cdn.jsdelivr.net/npm/level-selector@0.2.0/dist/level-selector.min.js', function() {
       new Clappr.Player({
         source: WORKER_URL + '/sky/mv/boomerang.m3u8',
         mimeType: 'application/x-mpegURL',
