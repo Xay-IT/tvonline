@@ -12,7 +12,7 @@ html, body { background: #000; width: 100%; height: 100%; overflow: hidden; }
 <body>
 <div id="player"></div>
 <script>
-  var WORKER_URL = 'https://tv.xay-it.workers.dev';
+  var W = 'https://tv.xay-it.workers.dev';
   function loadScript(src, cb) {
     var s = document.createElement('script');
     s.src = src; s.onload = cb;
@@ -20,14 +20,20 @@ html, body { background: #000; width: 100%; height: 100%; overflow: hidden; }
   }
   loadScript('https://cdn.jsdelivr.net/npm/@clappr/player@0.11.16/dist/clappr.min.js', function() {
     loadScript('https://cdn.jsdelivr.net/npm/level-selector@0.2.0/dist/level-selector.min.js', function() {
-      new Clappr.Player({
-        source: WORKER_URL + '/stream/02_3HD_720p/playlist.m3u8',
+      var p = new Clappr.Player({
+        source: W + '/stream/02_3HD_720p/playlist.m3u8',
         mimeType: 'application/x-mpegURL',
-        height: '100%', width: '100%', autoPlay: true,
+        height: '100%',
+        width: '100%',
+        autoPlay: false,
+        mute: true,
         plugins: [LevelSelector],
-        events: { onReady: function() { var p = this.getPlugin('click_to_pause'); p && p.disable(); } },
         parentId: '#player'
       });
+      // เล่นเมื่อ user แตะ/คลิก
+      document.getElementById('player').addEventListener('click', function() {
+        p.play();
+      }, { once: true });
     });
   });
 </script>
