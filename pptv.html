@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>PPTV HD 36</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,shrink-to-fit=no">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { background: #000; width: 100%; height: 100%; overflow: hidden; }
+#player { width: 100%; height: 100vh; }
+.loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 18px;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+<div class="loading" id="loading">กำลังโหลด PPTV HD 36...</div>
+<div id="player"></div>
+<script>
+  // เปลี่ยน URL นี้เป็น Worker URL ของคุณ
+  var WORKER_URL = 'https://tv.xay-it.workers.dev';
+  
+  function loadScript(src, cb) {
+    var s = document.createElement('script');
+    s.src = src; 
+    s.onload = cb;
+    s.onerror = function() {
+      console.error('Failed to load:', src);
+      document.getElementById('loading').innerHTML = 'เกิดข้อผิดพลาดในการโหลด player';
+    };
+    document.head.appendChild(s);
+  }
+  
+  loadScript('https://cdn.jsdelivr.net/npm/@clappr/player@0.11.16/dist/clappr.min.js', function() {
+    loadScript('https://cdn.jsdelivr.net/npm/level-selector@0.2.0/dist/level-selector.min.js', function() {
+      
+      // ลอง URL ที่เป็นไปได้หลายๆ แบบ
+      var possibleUrls = [
+        WORKER_URL + '/byteark/bamm-csai/playlist.m3u8',
+        WORKER_URL + '/byteark/live/playlist.m3u8',
+        WORKER_URL + '/stream/02_PPTVHD_720p/playlist.m3u8'
+      ];
+      
+      var currentUrlIndex = 0;
+      
+      function tryUrl(index) {
+        if (index >= possibleUrls.length) {
+          document.getElementById('loading').innerHTML = 'ไม่พบ stream ที่ใช้งานได้<br><small>กรุณาตรวจสอบ URL</small>';
+          return;
+        }
+        
+        var streamUrl = possibleUrls[index];
+        document.getElementById('loading').innerHTML = 'กำลังลอง: ' + (index + 1) + '/' + possibleUrls.length;
+        
+        var p = new Clappr.Player({
+          source: streamUrl,
+          mimeType: 'application/x-mpegURL',
+          height: '100%',
+          width: '100%',
+          autoPlay: false,
+          mute: true,
+          plugins: [LevelSelector],
+          parentId: '#player',
+          hlsjsConfig: {
+            debug: false,
+            enableWorker: true,
+            lowLatencyMode: false,
+            backBufferLength: 90
+          }
+        });
+        
+        p.on(Clappr.Events.PLAYER_READY, function() {
+          document.getElementById('loading').style.display = 'none';
+          console.log('Stream loaded successfully:', streamUrl);
+        });
+        
+        p.on(Clappr.Events.PLAYER_PLAY, function() {
+          document.getElementById('loading').style.display = 'none';
+        });
+        
+        p.on(Clappr.Events.PLAYER_ERROR, function(error) {
+          console.error('Stream error:', error);
+          p.destroy();
+          // ลอง URL ถัดไป
+          setTimeout(function() {
+            tryUrl(index + 1);
+          }, 1000);
+        });
+        
+        // คลิกเพื่อเล่น
+        document.getElementById('player').addEventListener('click', function() {
+          p.play();
+        }, { once: true });
+        
+        // ลองเล่นอัตโนมัติหลัง 2 วินาที
+        setTimeout(function() {
+          if (p.isPlaying && p.isPlaying()) {
+            document.getElementById('loading').style.display = 'none';
+          }
+        }, 2000);
+      }
+      
+      // เริ่มลอง URL แรก
+      tryUrl(0);
+    });
+  });
+</script>
+</body>
+</html>
