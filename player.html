@@ -4,244 +4,236 @@
 <title>Live Player</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,shrink-to-fit=no">
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-html, body { background: #000; width: 100%; height: 100%; overflow: hidden; font-family: sans-serif; }
-#player { width: 100%; height: 100vh; }
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html, body { background:#000; width:100%; height:100%; overflow:hidden; font-family:sans-serif; color:#fff; }
 
-#no-url {
-  position: fixed; inset: 0;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  background: #0d0d0d; color: #fff; gap: 16px;
-  z-index: 999;
+video {
+  display:none; position:fixed; inset:0;
+  width:100%; height:100%; background:#000; z-index:1;
 }
-#no-url h2 { font-size: 18px; font-weight: 500; color: #ccc; }
-#no-url input {
-  width: min(420px, 90vw);
-  background: #1a1a1a; border: 1px solid #333;
-  color: #fff; border-radius: 6px;
-  padding: 10px 14px; font-size: 14px; outline: none;
-}
-#no-url input:focus { border-color: #e8c84a; }
-#no-url button {
-  background: #e8c84a; color: #000;
-  border: none; border-radius: 6px;
-  padding: 10px 24px; font-size: 14px;
-  font-weight: 600; cursor: pointer;
-}
-#no-url button:hover { opacity: 0.85; }
-#no-url small { color: #555; font-size: 12px; }
+video.active { display:block; }
 
-/* fallback video element (hls.js direct) */
-#fallback-video {
-  display: none;
-  position: fixed; inset: 0;
-  width: 100%; height: 100%;
-  background: #000;
-  z-index: 10;
+#overlay {
+  position:fixed; inset:0; z-index:10;
+  display:flex; align-items:center; justify-content:center;
+  background:#0c0c0c;
 }
+.card {
+  width:min(480px,95vw); display:flex; flex-direction:column; gap:14px;
+  background:#141414; border:1px solid #222; border-radius:10px; padding:24px;
+}
+.card h2 { font-size:16px; font-weight:600; color:#e8c84a; }
+
+/* file:// warning */
+.file-warn {
+  background:rgba(232,74,74,.08); border:1px solid rgba(232,74,74,.3);
+  border-radius:6px; padding:12px 14px; font-size:12px; color:#e08080;
+  line-height:1.8; display:none;
+}
+.file-warn.show { display:block; }
+.file-warn strong { color:#e84a4a; }
+.file-warn code {
+  background:rgba(232,74,74,.12); border-radius:3px;
+  padding:1px 5px; font-size:11px; color:#f09090;
+}
+
+.label { font-size:12px; color:#555; margin-bottom:6px; }
+.row { display:flex; gap:8px; }
+
+input[type=text] {
+  flex:1; background:#0d0d0d; border:1px solid #2a2a2a;
+  color:#fff; border-radius:6px; padding:9px 12px;
+  font-size:13px; outline:none; min-width:0;
+}
+input[type=text]:focus { border-color:#e8c84a; }
+input[type=text]::placeholder { color:#333; }
+
+.btn {
+  background:#e8c84a; color:#000; border:none; border-radius:6px;
+  padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;
+}
+.btn:hover { opacity:.85; }
+
+.hint {
+  font-size:11px; color:#333; line-height:1.7;
+}
+.hint code { color:#555; background:#1a1a1a; padding:1px 5px; border-radius:3px; }
+.hint a    { color:#666; }
+
+/* top bar while playing */
+#bar {
+  position:fixed; top:0; left:0; right:0; z-index:20;
+  display:none; align-items:center; gap:8px;
+  padding:8px 12px;
+  background:linear-gradient(180deg,rgba(0,0,0,.8) 0%,transparent 100%);
+}
+#bar.show { display:flex; }
+#bar input { font-size:12px; padding:5px 10px; }
+#bar .btn  { padding:5px 12px; font-size:12px; }
 
 #toast {
-  position: fixed; bottom: 24px; left: 50%;
-  transform: translateX(-50%) translateY(60px);
-  background: rgba(232,200,74,0.15); border: 1px solid rgba(232,200,74,0.4);
-  color: #e8c84a; padding: 8px 18px; border-radius: 20px;
-  font-size: 13px; transition: transform 0.3s; z-index: 1000; pointer-events: none;
-  white-space: nowrap;
+  position:fixed; bottom:20px; left:50%;
+  transform:translateX(-50%) translateY(50px);
+  background:rgba(232,200,74,.1); border:1px solid rgba(232,200,74,.3);
+  color:#e8c84a; padding:6px 16px; border-radius:20px;
+  font-size:12px; transition:transform .25s; z-index:100; pointer-events:none;
 }
-#toast.show { transform: translateX(-50%) translateY(0); }
+#toast.show { transform:translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
 
-<div id="no-url">
-  <h2>ป้อน URL ของ Stream</h2>
-  <input type="text" id="urlInput" placeholder="https://example.com/live/stream.m3u8" />
-  <button onclick="startFromInput()">▶ เปิดดู</button>
-  <small>หรือเปิดผ่าน <code>?url=https://...</code></small>
+<video id="v" controls playsinline></video>
+
+<div id="bar">
+  <input type="text" id="bar-src" style="flex:1;min-width:0">
+  <button class="btn" onclick="playFromBar()">↺</button>
 </div>
 
-<div id="player"></div>
-<video id="fallback-video" controls playsinline></video>
+<div id="overlay">
+  <div class="card">
+    <h2>🎬 Live Player</h2>
+
+    <!-- file:// warning -->
+    <div class="file-warn" id="fileWarn">
+      <strong>⚠ เปิดจาก file:// — CORS จะ block ทุก request</strong><br>
+      ต้องเปิดผ่าน HTTP server เท่านั้น:<br>
+      • <strong>GitHub Pages</strong> — push ไฟล์นี้ขึ้น repo แล้วเปิด Pages<br>
+      • <strong>VS Code Live Server</strong> — คลิกขวา → Open with Live Server<br>
+      • <strong>Python local</strong>: <code>python -m http.server 8080</code> แล้วเปิด <code>http://localhost:8080</code>
+    </div>
+
+    <div>
+      <div class="label">Cloudflare Worker URL</div>
+      <div class="row">
+        <input type="text" id="workerInput"
+          placeholder="https://your-worker.workers.dev">
+        <button class="btn" onclick="playWorker()">▶ เล่น</button>
+      </div>
+    </div>
+
+    <div class="hint">
+      Worker จะถูกเรียกที่ <code>{worker}/</code> หรือ <code>{worker}/stream</code><br>
+      หรือเปิดตรงๆ ด้วย <code>?w=https://your-worker.workers.dev</code>
+    </div>
+
+  </div>
+</div>
+
 <div id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
 <script>
-// ─── utils ────────────────────────────────────────────────────────────────────
-function qs(key) { return new URLSearchParams(location.search).get(key); }
+var _hls = null;
 
-var _toastTimer;
+// ── utils ─────────────────────────────────────────────────────────────────────
+function qs(k)  { return new URLSearchParams(location.search).get(k) || ''; }
+function norm(u){ return u.replace(/\/+$/, ''); }   // ตัด trailing slash
+
+var _tt;
 function toast(msg, dur) {
-  clearTimeout(_toastTimer);
+  clearTimeout(_tt);
   var t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
-  _toastTimer = setTimeout(function() { t.classList.remove('show'); }, dur || 2800);
+  _tt = setTimeout(function(){ t.classList.remove('show'); }, dur||2800);
 }
 
-function loadScript(src, cb) {
-  var s = document.createElement('script');
-  s.src = src;
-  s.onload = cb;
-  s.onerror = function() { cb(new Error('Failed to load: ' + src)); };
-  document.head.appendChild(s);
-}
-
-// ─── safe play (guards AbortError) ───────────────────────────────────────────
-function safePlay(videoEl) {
-  var p = videoEl.play();
-  if (p && typeof p.then === 'function') {
-    p.then(null, function(err) {
-      // AbortError = play interrupted by pause/src-change — benign, ignore
-      if (err && err.name !== 'AbortError') {
-        toast('⚠ autoplay ถูกบล็อก — กดหน้าจอเพื่อเล่น');
-      }
-    });
-  }
-}
-
-// ─── fallback: hls.js direct (no Clappr) ─────────────────────────────────────
-var hlsInstance = null;
-
-function startHlsFallback(src) {
-  var vid = document.getElementById('fallback-video');
-  vid.style.display = 'block';
-  document.getElementById('player').style.display = 'none';
-  toast('ใช้ hls.js fallback...');
-
-  if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-
-  if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-    hlsInstance = new Hls({
-      liveSyncDurationCount: 3,
-      liveMaxLatencyDurationCount: 8,
-      enableWorker: true,
-      xhrSetup: function(xhr) { xhr.withCredentials = false; },
-    });
-    hlsInstance.loadSource(src);
-    hlsInstance.attachMedia(vid);
-    hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
-      toast('▶ กำลังเล่น (hls.js)');
-      safePlay(vid);
-    });
-    hlsInstance.on(Hls.Events.ERROR, function(_, data) {
-      if (data.fatal) {
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          toast('↺ network error — retry...');
-          setTimeout(function() { hlsInstance.startLoad(); }, 2000);
-        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-          toast('↺ media error — recover...');
-          hlsInstance.recoverMediaError();
-        } else {
-          toast('⚠ fatal error: ' + data.details);
-        }
-      }
-    });
-  } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
-    // Safari native HLS
-    vid.src = src;
-    safePlay(vid);
-    toast('▶ กำลังเล่น (native HLS)');
-  } else {
-    toast('⚠ เบราว์เซอร์ไม่รองรับ HLS');
-  }
-}
-
-// ─── Clappr player ───────────────────────────────────────────────────────────
-var clapprInstance = null;
-var _retryCount = 0;
-var _retryTimer = null;
-var _currentSrc = '';
-
-function initClappr(src) {
-  _currentSrc = src;
-  document.getElementById('no-url').style.display = 'none';
-
-  if (clapprInstance) {
-    try { clapprInstance.destroy(); } catch(e) {}
-    clapprInstance = null;
-    document.getElementById('player').innerHTML = '';
-  }
-
-  // LevelSelector: ต้องใช้ version ที่ ship พร้อม register ไม่ใช่ CDN เก่า
-  // ตรวจว่ามี plugin หรือไม่
-  var plugins = [];
-  if (typeof LevelSelector !== 'undefined') plugins.push(LevelSelector);
-
-  clapprInstance = new Clappr.Player({
-    source:   src,
-    mimeType: 'application/x-mpegURL',
-    height:   '100%',
-    width:    '100%',
-    autoPlay: false,   // เราจะ play เอง หลัง event READY
-    mute:     false,
-    plugins:  plugins,
-    hlsjsConfig: {
-      liveSyncDurationCount:       3,
-      liveMaxLatencyDurationCount: 8,
-      maxBufferLength:             30,
-      enableWorker:                true,
-      xhrSetup: function(xhr) { xhr.withCredentials = false; },
-    },
-    parentId: '#player',
+function safePlay(vid) {
+  var p = vid.play();
+  if (p && p.catch) p.catch(function(e){
+    if (e.name !== 'AbortError') toast('กดหน้าจอเพื่อเล่น');
   });
+}
 
-  // เล่นหลัง ready — หลีกเลี่ยง play/pause race
-  clapprInstance.on(Clappr.Events.PLAYER_READY, function() {
-    _retryCount = 0;
-    setTimeout(function() {
-      if (clapprInstance) clapprInstance.play();
-    }, 200);
-  });
+function showPlayer() {
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('bar').classList.add('show');
+}
 
-  clapprInstance.on(Clappr.Events.PLAYER_PLAY, function() {
-    toast('▶ กำลังเล่น');
-    _retryCount = 0;
-  });
+// ── core ──────────────────────────────────────────────────────────────────────
+function play(src) {
+  if (!src) { toast('กรุณาใส่ Worker URL'); return; }
 
-  clapprInstance.on(Clappr.Events.PLAYER_ERROR, function(e) {
-    console.warn('[player] error', e);
-    if (_retryCount < 3) {
-      _retryCount++;
-      toast('↺ retry ' + _retryCount + '/3...');
-      clearTimeout(_retryTimer);
-      _retryTimer = setTimeout(function() { initClappr(_currentSrc); }, 2500);
+  var vid = document.getElementById('v');
+  document.getElementById('bar-src').value = src;
+
+  if (_hls) { _hls.destroy(); _hls = null; }
+  vid.removeAttribute('src'); vid.load();
+
+  // Safari native HLS
+  if (!Hls.isSupported()) {
+    if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+      vid.src = src; vid.classList.add('active');
+      showPlayer(); safePlay(vid); toast('▶ native HLS');
     } else {
-      toast('↪ fallback hls.js...');
-      startHlsFallback(_currentSrc);
+      toast('⚠ เบราว์เซอร์ไม่รองรับ HLS');
     }
+    return;
+  }
+
+  _hls = new Hls({
+    liveSyncDurationCount:       3,
+    liveMaxLatencyDurationCount: 8,
+    maxBufferLength:             30,
+    enableWorker:                true,
   });
 
-  // tap-to-play สำหรับ mobile autoplay policy
-  var el = document.getElementById('player');
-  el.addEventListener('click', function handler() {
-    if (clapprInstance) clapprInstance.play();
-    el.removeEventListener('click', handler);
+  _hls.loadSource(src);
+  _hls.attachMedia(vid);
+
+  _hls.on(Hls.Events.MANIFEST_PARSED, function() {
+    vid.classList.add('active');
+    showPlayer();
+    safePlay(vid);
+    toast('▶ กำลังเล่น');
+  });
+
+  _hls.on(Hls.Events.ERROR, function(_, d) {
+    if (!d.fatal) return;
+    console.warn('[hls]', d.type, d.details, d);
+
+    if (d.type === Hls.ErrorTypes.NETWORK_ERROR) {
+      // CORS จาก file:// หรือ Worker ยังไม่ return header
+      if (location.protocol === 'file:') {
+        toast('⚠ file:// ใช้งานไม่ได้ — ต้องเปิดผ่าน HTTP');
+        return;
+      }
+      toast('↺ network error — retry...');
+      setTimeout(function(){ if(_hls) _hls.startLoad(); }, 2000);
+    } else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) {
+      toast('↺ media error — recover...');
+      _hls.recoverMediaError();
+    } else {
+      toast('⚠ ' + d.details);
+    }
   });
 }
 
-function startFromInput() {
-  var url = document.getElementById('urlInput').value.trim();
-  if (!url) { toast('กรุณาใส่ URL ก่อน'); return; }
-  history.replaceState(null, '', '?url=' + encodeURIComponent(url));
-  _retryCount = 0;
-  initClappr(url);
+function playWorker() {
+  var base = norm(document.getElementById('workerInput').value.trim());
+  if (!base) { toast('กรุณาใส่ Worker URL'); return; }
+  // Worker รับที่ / หรือ /stream
+  var src = base + '/';
+  history.replaceState(null,'','?w='+encodeURIComponent(base));
+  play(src);
 }
 
-// ─── boot: โหลด hls.js ก่อน แล้วค่อย clappr ─────────────────────────────────
-loadScript('https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js', function() {
-  // clappr 0.4.x มี level-selector built-in แล้ว (ไม่ต้องโหลดแยก)
-  loadScript('https://cdn.jsdelivr.net/npm/@clappr/player@0.4.10/dist/clappr.min.js', function(err) {
-    if (err || typeof Clappr === 'undefined') {
-      // clappr โหลดไม่ได้ → ใช้ hls.js ตรงเลย
-      var src = qs('url');
-      if (src) { startHlsFallback(src); }
-      return;
-    }
+function playFromBar() {
+  var src = document.getElementById('bar-src').value.trim();
+  play(src);
+}
 
-    var src = qs('url');
-    if (src) { initClappr(src); }
-    // ถ้าไม่มี ?url= → แสดง overlay กรอก URL
-  });
-});
+// ── boot ──────────────────────────────────────────────────────────────────────
+// ตรวจ file:// protocol
+if (location.protocol === 'file:') {
+  document.getElementById('fileWarn').classList.add('show');
+}
+
+var w = qs('w');
+if (w) {
+  document.getElementById('workerInput').value = w;
+  play(norm(w) + '/');
+}
 </script>
 </body>
 </html>
